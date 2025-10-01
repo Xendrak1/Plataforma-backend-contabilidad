@@ -135,11 +135,14 @@ class LoginSerializer(serializers.Serializer):
                     code='authorization'
                 )
             
-            if not user.activo:
-                raise serializers.ValidationError(
-                    'Usuario inactivo.',
-                    code='authorization'
-                )
+            # Verificar que el usuario tenga perfil y esté activo
+            if hasattr(user, 'perfil'):
+                if not user.perfil.activo:
+                    raise serializers.ValidationError(
+                        'Usuario inactivo.',
+                        code='authorization'
+                    )
+            # Si no tiene perfil, se creará automáticamente en la vista
         else:
             raise serializers.ValidationError(
                 'Debe proporcionar usuario y contraseña.',

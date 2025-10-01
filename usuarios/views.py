@@ -1,3 +1,4 @@
+import logging
 from rest_framework import viewsets, status
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
@@ -16,36 +17,57 @@ from .serializers import (
 )
 from .permissions import IsSuperAdmin, IsAdminOrSuperAdmin
 
+logger = logging.getLogger(__name__)
+
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def login_view(request):
     """Vista de login que retorna tokens JWT."""
-    serializer = LoginSerializer(data=request.data, context={'request': request})
-    
-    if serializer.is_valid():
-        user = serializer.validated_data['user']
+    try:
+        logger.info(f"Login attempt - Data received: {request.data.keys()}")
         
-        refresh = RefreshToken.for_user(user)
+        serializer = LoginSerializer(data=request.data, context={'request': request})
         
-        nombre_completo = f"{user.first_name} {user.last_name}".strip() or user.username
-        perfil = getattr(user, 'perfil', None)
-        
-        return Response({
-            'message': 'Login exitoso',
-            'access': str(refresh.access_token),
-            'refresh': str(refresh),
-            'user': {
-                'id': user.id,
-                'username': user.username,
-                'email': user.email,
-                'nombre_completo': nombre_completo,
-                'rol': perfil.rol if perfil else 'RESIDENTE',
-                'vivienda': perfil.vivienda_id if perfil else None,
+        if serializer.is_valid():
+            user = serializer.validated_data['user']
+            logger.info(f"User authenticated: {user.username}")
+            
+            refresh = RefreshToken.for_user(user)
+            
+            nombre_completo = f"{user.first_name} {user.last_name}".strip() or user.username
+            perfil = getattr(user, 'perfil', None)
+            
+            if not perfil:
+                logger.warning(f"User {user.username} has no profile, creating one...")
+                perfil = PerfilUsuario.objects.create(user=user)
+            
+            response_data = {
+                'message': 'Login exitoso',
+                'access': str(refresh.access_token),
+                'refresh': str(refresh),
+                'user': {
+                    'id': user.id,
+                    'username': user.username,
+                    'email': user.email,
+                    'nombre_completo': nombre_completo,
+                    'rol': perfil.rol,
+                    'vivienda': perfil.vivienda_id,
+                }
             }
-        }, status=status.HTTP_200_OK)
-    
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            
+            logger.info(f"Login successful for user: {user.username}")
+            return Response(response_data, status=status.HTTP_200_OK)
+        
+        logger.warning(f"Login validation failed: {serializer.errors}")
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+    except Exception as e:
+        logger.error(f"Login error: {str(e)}", exc_info=True)
+        return Response(
+            {'error': 'Error interno del servidor', 'detail': str(e)}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
 
 @api_view(['POST'])
