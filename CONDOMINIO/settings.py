@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -23,9 +24,20 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-^dal*al**&pqhguz2s!(6h7nkxdd_25(5zj%4rt%ng@eia3n@@'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# Permite controlar DEBUG desde variable de entorno DJANGO_DEBUG
+DEBUG = os.environ.get("DJANGO_DEBUG", "False").lower() == "true"
 
-ALLOWED_HOSTS = []
+# Configura hosts permitidos. En Azure, WEBSITE_HOSTNAME expone el host de la app
+AZURE_HOSTNAME = os.environ.get("WEBSITE_HOSTNAME", "")
+ALLOWED_HOSTS = [h for h in [AZURE_HOSTNAME, "contabilidadwebapp-backend-dnhmfyfda0ehb9f7.brazilsouth-01.azurewebsites.net", "localhost", "127.0.0.1"] if h]
+
+# Confía en el proxy de Azure para considerar HTTPS correctamente
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# Orígenes de confianza para CSRF cuando se use https
+CSRF_TRUSTED_ORIGINS = [
+    f"https://{h}" for h in ALLOWED_HOSTS if not h.startswith("127.0.0.1") and not h.startswith("localhost")
+]
 
 
 # Application definition
@@ -45,6 +57,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -126,6 +139,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
