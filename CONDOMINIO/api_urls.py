@@ -2,8 +2,8 @@ from django.urls import path, include
 from core import views
 
 urlpatterns = [
-    # Autenticación y gestión de usuarios
-    path('', include('usuarios.urls')),
+    # AUTENTICACIÓN TEMPORALMENTE DESACTIVADA PARA DEMO
+    # path('', include('usuarios.urls')),
     
     # Endpoints específicos para cada módulo
     # Residentes
