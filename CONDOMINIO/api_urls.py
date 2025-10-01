@@ -1,7 +1,10 @@
-from django.urls import path
+from django.urls import path, include
 from core import views
 
 urlpatterns = [
+    # Autenticación y gestión de usuarios
+    path('', include('usuarios.urls')),
+    
     # Endpoints específicos para cada módulo
     # Residentes
     path('residentes/', views.listar_residentes, name='listar_residentes'),
