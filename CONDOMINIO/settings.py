@@ -12,9 +12,13 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 import os
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Cargar variables de entorno desde .env
+load_dotenv(BASE_DIR / '.env')
 
 
 # Quick-start development settings - unsuitable for production
@@ -94,11 +98,14 @@ WSGI_APPLICATION = 'CONDOMINIO.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'Condominio',       # nombre exacto de tu DB en pgAdmin
-        'USER': 'postgres',         # tu usuario de PostgreSQL
-        'PASSWORD': '1788',# la contraseña que usas en pgAdmin
-        'HOST': 'localhost',        # o la IP del servidor PostgreSQL
-        'PORT': '5432',             # puerto por defecto
+        'NAME': os.environ.get('DB_NAME', 'Condominio'),
+        'USER': os.environ.get('DB_USER', 'jeadmin'),
+        'PASSWORD': os.environ.get('DB_PASSWORD', 'ByuSix176488'),
+        'HOST': os.environ.get('DB_HOST', 'condominio-flutter.postgres.database.azure.com'),
+        'PORT': os.environ.get('DB_PORT', '5432'),
+        'OPTIONS': {
+            'sslmode': 'require',  # Azure PostgreSQL requiere SSL
+        }
     }
 }
 
