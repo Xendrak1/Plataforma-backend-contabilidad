@@ -80,7 +80,8 @@ MIDDLEWARE = [
 ]
 
 # Configuración CORS - Frontend URL verificada
-CORS_ALLOW_ALL_ORIGINS = False
+# TEMPORAL: Permitir todos los orígenes para debug del error 409
+CORS_ALLOW_ALL_ORIGINS = True  # Temporal para debug
 CORS_ALLOWED_ORIGINS = [
     # Frontend en producción (Azure) - URL correcta con "o" al inicio
     'https://ontabilidadwebapp-frontend-linux-d2a9ddabctgte8ae.brazilsouth-01.azurewebsites.net',
@@ -112,10 +113,10 @@ CORS_ALLOWED_METHODS = [
 ]
 
 # Para debug de CORS en desarrollo/Azure  
-CORS_ALLOW_ALL_ORIGINS = DEBUG  # Solo permitir todos los orígenes si DEBUG=True
+# CORS_ALLOW_ALL_ORIGINS = DEBUG  # Solo permitir todos los orígenes si DEBUG=True - COMENTADO TEMPORALMENTE
 
 # Forzar nuevo deployment - Azure fix
-DEPLOYMENT_VERSION = "1.0.1"
+DEPLOYMENT_VERSION = "1.0.2"
 
 ROOT_URLCONF = 'CONDOMINIO.urls'
 
