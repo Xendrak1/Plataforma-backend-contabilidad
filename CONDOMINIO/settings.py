@@ -111,8 +111,11 @@ CORS_ALLOWED_METHODS = [
     'PUT',
 ]
 
-# Para debug de CORS en desarrollo/Azure
+# Para debug de CORS en desarrollo/Azure  
 CORS_ALLOW_ALL_ORIGINS = DEBUG  # Solo permitir todos los orígenes si DEBUG=True
+
+# Forzar nuevo deployment - Azure fix
+DEPLOYMENT_VERSION = "1.0.1"
 
 ROOT_URLCONF = 'CONDOMINIO.urls'
 
