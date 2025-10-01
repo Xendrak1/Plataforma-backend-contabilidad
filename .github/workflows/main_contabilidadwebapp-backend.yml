@@ -24,48 +24,21 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Create virtual environment and install dependencies
+      - name: Create and start virtual environment
         run: |
           python -m venv venv
           source venv/bin/activate
-          pip install --upgrade pip
-          pip install -r requirements.txt
-
-      - name: Create deployment package
-        run: |
-          # Crear directorio para el paquete
-          mkdir deployment_package
-          
-          # Copiar archivos de la aplicación
-          cp -r CONDOMINIO deployment_package/
-          cp -r core deployment_package/
-          cp -r usuarios deployment_package/
-          cp manage.py deployment_package/
-          cp requirements.txt deployment_package/
-          
-          # Instalar dependencias en el paquete (no en venv)
-          source venv/bin/activate
-          pip install -r requirements.txt -t deployment_package/
-          
-          # Crear archivo de inicio
-          cat > deployment_package/startup.sh << 'EOF'
-          #!/bin/bash
-          python manage.py collectstatic --noinput
-          python manage.py migrate --noinput
-          gunicorn CONDOMINIO.wsgi:application --bind=0.0.0.0:8000 --workers=2
-          EOF
-          chmod +x deployment_package/startup.sh
-          
-          # Crear ZIP
-          cd deployment_package
-          zip -r ../app.zip . -x "*.pyc" "__pycache__/*" "*.git*"
-          cd ..
+      
+      - name: Install dependencies
+        run: pip install -r requirements.txt
 
       - name: Upload artifact for deployment jobs
         uses: actions/upload-artifact@v4
         with:
-          name: python-app-package
-          path: app.zip
+          name: python-app
+          path: |
+            .
+            !venv/
 
   deploy:
     runs-on: ubuntu-latest
@@ -78,7 +51,7 @@ jobs:
       - name: Download artifact from build job
         uses: actions/download-artifact@v4
         with:
-          name: python-app-package
+          name: python-app
       
       - name: Login to Azure
         uses: azure/login@v2
@@ -87,19 +60,10 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_AEC618783390498C87BD05039F249A25 }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_CB370DF1E27942CA883C1CE36084E94C }}
 
-      # NOTA: Las App Settings deben configurarse manualmente en Azure Portal:
-      # WEBSITE_RUN_FROM_PACKAGE=1
-      # SCM_DO_BUILD_DURING_DEPLOYMENT=false
-      # PYTHON_VERSION=3.12
-      
-      - name: Wait before deployment to avoid SCM conflicts
-        run: sleep 15
-
       - name: 'Deploy to Azure Web App'
         uses: azure/webapps-deploy@v3
         id: deploy-to-webapp
         with:
           app-name: 'contabilidadwebapp-backend'
           slot-name: 'Production'
-          package: app.zip
           
