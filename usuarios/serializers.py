@@ -150,6 +150,45 @@ class LoginSerializer(serializers.Serializer):
         return attrs
 
 
+class UsuarioUpdateSerializer(serializers.ModelSerializer):
+    """Serializer para actualización parcial de usuarios."""
+    
+    activo = serializers.BooleanField(required=False)
+    rol = serializers.ChoiceField(choices=PerfilUsuario.ROL_CHOICES, required=False)
+    telefono = serializers.CharField(required=False, allow_blank=True)
+    vivienda = serializers.IntegerField(required=False, allow_null=True)
+    
+    class Meta:
+        model = User
+        fields = ['first_name', 'last_name', 'email', 'activo', 'rol', 'telefono', 'vivienda']
+    
+    def update(self, instance, validated_data):
+        # Extraer datos del perfil
+        activo = validated_data.pop('activo', None)
+        rol = validated_data.pop('rol', None)
+        telefono = validated_data.pop('telefono', None)
+        vivienda = validated_data.pop('vivienda', None)
+        
+        # Actualizar campos del usuario
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        
+        # Actualizar perfil
+        perfil = instance.perfil
+        if activo is not None:
+            perfil.activo = activo
+        if rol is not None:
+            perfil.rol = rol
+        if telefono is not None:
+            perfil.telefono = telefono
+        if vivienda is not None:
+            perfil.vivienda_id = vivienda
+        perfil.save()
+        
+        return instance
+
+
 class ChangePasswordSerializer(serializers.Serializer):
     """Serializer para cambiar contraseña."""
     

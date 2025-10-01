@@ -10,9 +10,11 @@ from .models import PerfilUsuario
 from .serializers import (
     UsuarioSerializer,
     UsuarioCreateSerializer,
+    UsuarioUpdateSerializer,
     LoginSerializer,
     ChangePasswordSerializer
 )
+from .permissions import IsSuperAdmin, IsAdminOrSuperAdmin
 
 
 @api_view(['POST'])
@@ -96,12 +98,46 @@ class UsuarioViewSet(viewsets.ModelViewSet):
     """ViewSet para CRUD de usuarios (solo administradores)."""
     
     queryset = User.objects.all()
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    permission_classes = [IsAuthenticated, IsAdminOrSuperAdmin]
     
     def get_serializer_class(self):
         if self.action == 'create':
             return UsuarioCreateSerializer
+        elif self.action in ['update', 'partial_update']:
+            return UsuarioUpdateSerializer
         return UsuarioSerializer
+    
+    def partial_update(self, request, *args, **kwargs):
+        """
+        PATCH /api/usuarios/{id}/
+        Actualización parcial del usuario (incluyendo campo activo).
+        """
+        usuario = self.get_object()
+        serializer = UsuarioUpdateSerializer(usuario, data=request.data, partial=True)
+        
+        if serializer.is_valid():
+            serializer.save()
+            # Retornar con el serializer completo
+            response_serializer = UsuarioSerializer(usuario)
+            return Response(response_serializer.data)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    def update(self, request, *args, **kwargs):
+        """
+        PUT /api/usuarios/{id}/
+        Actualización completa del usuario.
+        """
+        usuario = self.get_object()
+        serializer = UsuarioUpdateSerializer(usuario, data=request.data, partial=False)
+        
+        if serializer.is_valid():
+            serializer.save()
+            # Retornar con el serializer completo
+            response_serializer = UsuarioSerializer(usuario)
+            return Response(response_serializer.data)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
     @action(detail=False, methods=['get'], permission_classes=[AllowAny])
     def publico(self, request):
@@ -110,21 +146,46 @@ class UsuarioViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(usuarios, many=True)
         return Response(serializer.data)
     
-    @action(detail=True, methods=['put'], url_path='cambiar-rol')
+    @action(detail=True, methods=['put'], url_path='cambiar-rol', permission_classes=[IsAuthenticated, IsSuperAdmin])
     def cambiar_rol(self, request, pk=None):
-        """Cambia el rol de un usuario."""
+        """
+        PUT /api/usuarios/{id}/cambiar-rol/
+        Cambia el rol de un usuario (solo SUPER_ADMIN).
+        """
         usuario = self.get_object()
         nuevo_rol = request.data.get('rol')
         
-        if nuevo_rol not in dict(PerfilUsuario.ROL_CHOICES):
+        if not nuevo_rol:
             return Response(
-                {'error': 'Rol inválido'},
+                {'error': 'El campo "rol" es requerido'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
+        # Validar que el rol existe
+        roles_validos = [rol[0] for rol in PerfilUsuario.ROL_CHOICES]
+        if nuevo_rol not in roles_validos:
+            return Response(
+                {
+                    'error': 'Rol inválido',
+                    'roles_validos': roles_validos
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # No permitir cambiar el rol de uno mismo
+        if usuario.id == request.user.id:
+            return Response(
+                {'error': 'No puedes cambiar tu propio rol'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Actualizar rol
         perfil = usuario.perfil
         perfil.rol = nuevo_rol
         perfil.save()
         
-        serializer = self.get_serializer(usuario)
-        return Response(serializer.data)
+        serializer = UsuarioSerializer(usuario)
+        return Response({
+            'message': f'Rol actualizado a {perfil.get_rol_display()}',
+            'usuario': serializer.data
+        })
