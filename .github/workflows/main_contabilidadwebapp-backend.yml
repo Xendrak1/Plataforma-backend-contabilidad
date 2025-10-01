@@ -14,7 +14,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: read #This is required for actions/checkout
+      contents: read
 
     steps:
       - uses: actions/checkout@v4
@@ -24,36 +24,61 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Create and start virtual environment
+      - name: Create virtual environment and install dependencies
         run: |
           python -m venv venv
           source venv/bin/activate
-      
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-        
-      # Optional: Add step to run tests here (PyTest, Django test suites, etc.)
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Create deployment package
+        run: |
+          # Crear directorio para el paquete
+          mkdir deployment_package
+          
+          # Copiar archivos de la aplicación
+          cp -r CONDOMINIO deployment_package/
+          cp -r core deployment_package/
+          cp -r usuarios deployment_package/
+          cp manage.py deployment_package/
+          cp requirements.txt deployment_package/
+          
+          # Instalar dependencias en el paquete (no en venv)
+          source venv/bin/activate
+          pip install -r requirements.txt -t deployment_package/
+          
+          # Crear archivo de inicio
+          cat > deployment_package/startup.sh << 'EOF'
+          #!/bin/bash
+          python manage.py collectstatic --noinput
+          python manage.py migrate --noinput
+          gunicorn CONDOMINIO.wsgi:application --bind=0.0.0.0:8000 --workers=2
+          EOF
+          chmod +x deployment_package/startup.sh
+          
+          # Crear ZIP
+          cd deployment_package
+          zip -r ../app.zip . -x "*.pyc" "__pycache__/*" "*.git*"
+          cd ..
 
       - name: Upload artifact for deployment jobs
         uses: actions/upload-artifact@v4
         with:
-          name: python-app
-          path: |
-            .
-            !venv/
+          name: python-app-package
+          path: app.zip
 
   deploy:
     runs-on: ubuntu-latest
     needs: build
     permissions:
-      id-token: write #This is required for requesting the JWT
-      contents: read #This is required for actions/checkout
+      id-token: write
+      contents: read
 
     steps:
       - name: Download artifact from build job
         uses: actions/download-artifact@v4
         with:
-          name: python-app
+          name: python-app-package
       
       - name: Login to Azure
         uses: azure/login@v2
@@ -62,10 +87,24 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_AEC618783390498C87BD05039F249A25 }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_CB370DF1E27942CA883C1CE36084E94C }}
 
+      - name: Configure App Settings for Run-From-Package
+        run: |
+          az webapp config appsettings set \
+            --resource-group rg-condominio \
+            --name contabilidadwebapp-backend \
+            --settings \
+              WEBSITE_RUN_FROM_PACKAGE=1 \
+              SCM_DO_BUILD_DURING_DEPLOYMENT=false \
+              PYTHON_VERSION=3.12
+          
+          # Esperar para evitar conflictos de SCM
+          sleep 30
+
       - name: 'Deploy to Azure Web App'
         uses: azure/webapps-deploy@v3
         id: deploy-to-webapp
         with:
           app-name: 'contabilidadwebapp-backend'
           slot-name: 'Production'
+          package: app.zip
           
