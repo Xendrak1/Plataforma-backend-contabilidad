@@ -116,7 +116,7 @@ CORS_ALLOWED_METHODS = [
 # CORS_ALLOW_ALL_ORIGINS = DEBUG  # Solo permitir todos los orígenes si DEBUG=True - COMENTADO TEMPORALMENTE
 
 # Forzar nuevo deployment - Azure fix
-DEPLOYMENT_VERSION = "1.0.2"
+DEPLOYMENT_VERSION = "1.0.3"  # Azure container restart fix
 
 ROOT_URLCONF = 'CONDOMINIO.urls'
 
